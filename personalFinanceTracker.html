@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Personal Finance Tracker with IndexedDB</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    font-family: 'Poppins', sans-serif;
+    background: #f5f7fa;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+  }
+  .container {
+    max-width: 600px;
+    background: white;
+    border-radius: 12px;
+    padding: 30px 30px 40px 30px;
+    box-shadow: 0 15px 30px rgba(50,50,93,.1), 0 5px 15px rgba(0,0,0,.07);
+  }
+  h1 {
+    text-align: center;
+    margin-bottom: 15px;
+    font-weight: 600;
+    color: #333;
+  }
+  .summary {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 30px;
+  }
+  .summary > div {
+    text-align: center;
+    padding: 15px;
+    width: 30%;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.05);
+    background: #f9fafb;
+  }
+  .summary > div h3 {
+    margin: 0 0 8px 0;
+    font-weight: 600;
+    color: #555;
+  }
+  .summary > div p {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 700;
+  }
+  .summary .income p {
+    color: #2ecc71;
+  }
+  .summary .expense p {
+    color: #e74c3c;
+  }
+  .summary .balance p {
+    color: #34495e;
+  }
+
+  form {
+    display: grid;
+    gap: 15px;
+    margin-bottom: 35px;
+  }
+
+  input[type="text"], input[type="number"], select {
+    padding: 12px 15px;
+    font-size: 1rem;
+    border-radius: 8px;
+    border: 1.5px solid #ddd;
+    transition: border-color 0.3s ease;
+  }
+  input[type="text"]:focus, input[type="number"]:focus, select:focus {
+    outline: none;
+    border-color: #3498db;
+  }
+
+  button {
+    background: #3498db;
+    border: none;
+    color: white;
+    padding: 15px;
+    font-size: 1.2rem;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  button:hover {
+    background: #2980b9;
+  }
+
+  ul.transactions {
+    list-style: none;
+    padding: 0;
+    max-height: 280px;
+    overflow-y: auto;
+    border-radius: 10px;
+    box-shadow: inset 0 1px 5px rgba(0,0,0,0.1);
+  }
+  ul.transactions li {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 18px;
+    border-bottom: 1px solid #eee;
+    align-items: center;
+    font-size: 1rem;
+  }
+  ul.transactions li:last-child {
+    border-bottom: none;
+  }
+  ul.transactions li.income {
+    border-left: 5px solid #2ecc71;
+    background: #e6f9ec;
+  }
+  ul.transactions li.expense {
+    border-left: 5px solid #e74c3c;
+    background: #fde6e6;
+  }
+  ul.transactions li span.description {
+    flex: 1;
+  }
+  ul.transactions li span.category {
+    font-size: 0.85rem;
+    opacity: 0.6;
+    margin-left: 10px;
+    font-style: italic;
+  }
+  ul.transactions li span.amount {
+    min-width: 90px;
+    text-align: right;
+    font-weight: 700;
+  }
+  ul.transactions li button.delete-btn {
+    background: transparent;
+    border: none;
+    color: #e74c3c;
+    font-size: 1.3rem;
+    margin-left: 15px;
+    cursor: pointer;
+    transition: color 0.3s ease;
+  }
+  ul.transactions li button.delete-btn:hover {
+    color: #c0392b;
+  }
+  /* Scrollbar styling */
+  ul.transactions::-webkit-scrollbar {
+    width: 8px;
+  }
+  ul.transactions::-webkit-scrollbar-thumb {
+    background-color: rgba(0,0,0,0.1);
+    border-radius: 10px;
+  }
+</style>
+</head>
+<body>
+  <div class="container" role="main">
+    <h1>Personal Finance Tracker</h1>
+
+    <section class="summary" aria-label="Summary of finance">
+      <div class="income" aria-live="polite">
+        <h3>Total Income</h3>
+        <p id="income">$0.00</p>
+      </div>
+      <div class="expense" aria-live="polite">
+        <h3>Total Expenses</h3>
+        <p id="expense">$0.00</p>
+      </div>
+      <div class="balance" aria-live="polite">
+        <h3>Balance</h3>
+        <p id="balance">$0.00</p>
+      </div>
+    </section>
+
+    <form id="transaction-form" aria-label="Add a new transaction">
+      <input type="text" id="description" placeholder="Description" aria-label="Transaction description" required />
+      <select id="category" aria-label="Transaction category" required>
+        <option value="" disabled selected>Select category</option>
+        <option value="Salary">Salary</option>
+        <option value="Food">Food</option>
+        <option value="Transport">Transport</option>
+        <option value="Entertainment">Entertainment</option>
+        <option value="Bills">Bills</option>
+        <option value="Others">Others</option>
+      </select>
+      <input type="number" id="amount" placeholder="Amount (positive income, negative expense)" aria-label="Transaction amount" step="0.01" required />
+      <button type="submit">Add Transaction</button>
+    </form>
+
+    <ul class="transactions" id="transaction-list" aria-label="List of transactions">
+      <!-- Transactions will appear here -->
+    </ul>
+  </div>
+
+<script>
+  (() => {
+    const DB_NAME = 'financeDB';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'transactions';
+
+    let db;
+    const form = document.getElementById('transaction-form');
+    const descriptionInput = document.getElementById('description');
+    const categoryInput = document.getElementById('category');
+    const amountInput = document.getElementById('amount');
+    const transactionList = document.getElementById('transaction-list');
+    const incomeDisplay = document.getElementById('income');
+    const expenseDisplay = document.getElementById('expense');
+    const balanceDisplay = document.getElementById('balance');
+
+    // Open database and create object store if needed
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+            // Create index by amount for querying if needed
+            store.createIndex('amount', 'amount', { unique: false });
+          }
+        };
+
+        request.onsuccess = (event) => {
+          db = event.target.result;
+          resolve(db);
+        };
+
+        request.onerror = (event) => {
+          reject(event.target.error);
+        };
+      });
+    }
+
+    function addTransactionToDB(transaction) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.add(transaction);
+        request.onsuccess = () => resolve();
+        request.onerror = (e) => reject(e.target.error);
+      });
+    }
+
+    function getAllTransactions() {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.getAll();
+
+        request.onsuccess = (e) => resolve(e.target.result);
+        request.onerror = (e) => reject(e.target.error);
+      });
+    }
+
+    function deleteTransactionFromDB(id) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.delete(id);
+
+        request.onsuccess = () => resolve();
+        request.onerror = (e) => reject(e.target.error);
+      });
+    }
+
+    const formatCurrency = (num) => {
+      return num.toLocaleString('en-US', {style: 'currency', currency: 'USD'});
+    };
+
+    // Current in-memory transactions list mirrored from DB
+    let transactions = [];
+
+    const updateSummary = () => {
+      const income = transactions.filter(t => t.amount > 0).reduce((acc, t) => acc + t.amount, 0);
+      const expense = transactions.filter(t => t.amount < 0).reduce((acc, t) => acc + t.amount, 0);
+      const balance = income + expense;
+
+      incomeDisplay.textContent = formatCurrency(income);
+      expenseDisplay.textContent = formatCurrency(Math.abs(expense));
+      balanceDisplay.textContent = formatCurrency(balance);
+    };
+
+    const createTransactionElement = (transaction) => {
+      const li = document.createElement('li');
+      li.className = transaction.amount >= 0 ? 'income' : 'expense';
+      li.setAttribute('data-id', transaction.id);
+
+      const descSpan = document.createElement('span');
+      descSpan.className = 'description';
+      descSpan.textContent = transaction.description;
+
+      const catSpan = document.createElement('span');
+      catSpan.className = 'category';
+      catSpan.textContent = `(${transaction.category})`;
+
+      const amountSpan = document.createElement('span');
+      amountSpan.className = 'amount';
+      amountSpan.textContent = formatCurrency(transaction.amount);
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'delete-btn';
+      deleteBtn.setAttribute('aria-label', `Delete transaction: ${transaction.description}, amount: ${formatCurrency(transaction.amount)}`);
+      deleteBtn.innerHTML = '&times;';
+      deleteBtn.addEventListener('click', async () => {
+        await deleteTransaction(transaction.id);
+      });
+
+      li.appendChild(descSpan);
+      li.appendChild(catSpan);
+      li.appendChild(amountSpan);
+      li.appendChild(deleteBtn);
+
+      return li;
+    };
+
+    const renderTransactions = () => {
+      transactionList.innerHTML = '';
+      transactions.slice().reverse().forEach(transaction => {
+        const li = createTransactionElement(transaction);
+        transactionList.appendChild(li);
+      });
+      updateSummary();
+    };
+
+    const loadTransactions = async () => {
+      transactions = await getAllTransactions();
+      renderTransactions();
+    };
+
+    const addTransaction = async (transaction) => {
+      await addTransactionToDB(transaction);
+      await loadTransactions();
+    };
+
+    const deleteTransaction = async (id) => {
+      await deleteTransactionFromDB(id);
+      await loadTransactions();
+    };
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const description = descriptionInput.value.trim();
+      const category = categoryInput.value;
+      let amount = parseFloat(amountInput.value);
+
+      if (!description || !category || isNaN(amount) || amount === 0) {
+        alert('Please enter valid inputs. Amount cannot be zero.');
+        return;
+      }
+
+      // Round amount to 2 decimals
+      amount = Math.round(amount * 100) / 100;
+
+      const transaction = {
+        description,
+        category,
+        amount
+      };
+
+      form.querySelector('button[type="submit"]').disabled = true;
+
+      try {
+        await addTransaction(transaction);
+      } catch (err) {
+        alert('Error adding transaction: ' + err);
+      } finally {
+        form.querySelector('button[type="submit"]').disabled = false;
+      }
+
+      form.reset();
+      descriptionInput.focus();
+    });
+
+    // Initialize application
+    (async () => {
+      try {
+        await openDB();
+        await loadTransactions();
+      } catch (error) {
+        alert('Failed to open database: ' + error);
+      }
+    })();
+  })();
+</script>
+</body>
+</html>
+
